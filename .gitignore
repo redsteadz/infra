@@ -19,6 +19,7 @@
 /my.cnf/
 /lost+found/
 /config.php
+/apache/
 
 # Local and obsolete configuration
 /docker-compose.override.yml
