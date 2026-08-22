@@ -1,0 +1,34 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+
+# Runtime state
+/data/
+/db/
+/certs/
+/beszel_data/
+/beszel_agent_data/
+/beszel_socket/
+/vault/
+/my.cnf/
+/lost+found/
+/config.php
+
+# Local and obsolete configuration
+/docker-compose.override.yml
+/000-default.conf.backup
+/nextcloud-ssl.conf
+*.backup
+*.log
+
+# Editor and operating system files
+.DS_Store
+.idea/
+.vscode/
+*~
