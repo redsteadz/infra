@@ -51,6 +51,8 @@ services:
       OVERWRITECLIURL: ${NEXTCLOUD_URL}
       PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT}
       PHP_UPLOAD_LIMIT: ${PHP_UPLOAD_LIMIT}
+      LAN_REDIRECT_ENABLED: ${LAN_REDIRECT_ENABLED:-false}
+      LAN_REDIRECT_HOST: ${LAN_REDIRECT_HOST:-}
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--insecure", "https://localhost/status.php"]
       interval: 30s

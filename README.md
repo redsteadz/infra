@@ -54,6 +54,25 @@ docker compose restart app
 
 The certificate must include `TLS_HOST` in its subject alternative names.
 
+## LAN Bypass (cloudflared)
+
+When the stack sits behind a `cloudflared` tunnel, LAN clients can talk to the Docker host directly instead of taking the cloudflared detour. Set the following in `.env`:
+
+```env
+LAN_REDIRECT_ENABLED=true
+LAN_REDIRECT_HOST=192.168.1.50
+```
+
+`LAN_REDIRECT_HOST` is the Docker host's LAN IP. With the flag on, Apache returns a 302 to `https://<LAN_REDIRECT_HOST>:<HTTPS_PORT>/<path>` whenever a request comes from a private CIDR (`10/8`, `172.16/12`, `192.168/16`) with the public hostname in the `Host` header. Subsequent requests skip cloudflared.
+
+Requirements:
+
+- LAN clients must be able to reach `LAN_REDIRECT_HOST:HTTPS_PORT` directly (open the port in the host firewall, or have a routing rule).
+- The self-signed certificate should cover the LAN target. On a fresh install, `setup.sh` appends the LAN host or IP to the certificate's `subjectAltName`. For an existing cert, delete `certs/tls.crt` and `certs/tls.key` and rerun `setup.sh`.
+- Run `./scripts/setup.sh --check` after changing the values to confirm the configuration parses.
+
+Public traffic still flows through cloudflared; only direct LAN hits that match the public hostname are redirected.
+
 ## Monitoring
 
 Beszel is isolated in an optional Compose profile:

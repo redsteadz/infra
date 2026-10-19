@@ -66,6 +66,9 @@ BESZEL_PORT=8090
 BESZEL_URL=http://localhost:8090
 BESZEL_DATA_PATH=./beszel_data
 BESZEL_SOCKET_PATH=./beszel_socket
+
+LAN_REDIRECT_ENABLED=false
+LAN_REDIRECT_HOST=
 EOF
     printf 'Created %s\n' "$ENV_FILE"
 fi
@@ -79,6 +82,17 @@ set +a
 [ "$MARIADB_ROOT_PASSWORD" != "change-me" ] || fail "Set MARIADB_ROOT_PASSWORD in .env."
 [ "$MARIADB_PASSWORD" != "change-me" ] || fail "Set MARIADB_PASSWORD in .env."
 [ "$NEXTCLOUD_ADMIN_PASSWORD" != "change-me" ] || fail "Set NEXTCLOUD_ADMIN_PASSWORD in .env."
+
+: "${LAN_REDIRECT_ENABLED:=false}"
+: "${LAN_REDIRECT_HOST:=}"
+export LAN_REDIRECT_ENABLED LAN_REDIRECT_HOST
+case "$LAN_REDIRECT_ENABLED" in
+    true|false) ;;
+    *) fail "LAN_REDIRECT_ENABLED must be true or false in .env." ;;
+esac
+if [ "$LAN_REDIRECT_ENABLED" = "true" ] && [ -z "$LAN_REDIRECT_HOST" ]; then
+    fail "Set LAN_REDIRECT_HOST in .env when LAN_REDIRECT_ENABLED=true."
+fi
 
 mkdir -p \
     "$NEXTCLOUD_DATA_PATH" \
@@ -95,6 +109,17 @@ if [ -f "$TLS_CERT_PATH" ] && [ -f "$TLS_KEY_PATH" ]; then
     cert_key=$(openssl x509 -in "$TLS_CERT_PATH" -pubkey -noout | openssl pkey -pubin -outform DER 2>/dev/null | openssl dgst -sha256)
     private_key=$(openssl pkey -in "$TLS_KEY_PATH" -pubout -outform DER 2>/dev/null | openssl dgst -sha256)
     [ "$cert_key" = "$private_key" ] || fail "TLS certificate and private key do not match."
+    if [ "$LAN_REDIRECT_ENABLED" = "true" ]; then
+        san_text=$(openssl x509 -in "$TLS_CERT_PATH" -noout -ext subjectAltName 2>/dev/null || true)
+        case "$LAN_REDIRECT_HOST" in
+            *[!0-9.]*) san_kind="DNS:$LAN_REDIRECT_HOST" ;;
+            *) san_kind="IP:$LAN_REDIRECT_HOST" ;;
+        esac
+        if ! printf '%s\n' "$san_text" | grep -qF "$san_kind"; then
+            printf 'Warning: existing certificate lacks subjectAltName %s. Delete %s and %s and rerun to regenerate.\n' \
+                "$san_kind" "$TLS_CERT_PATH" "$TLS_KEY_PATH" >&2
+        fi
+    fi
 elif [ -e "$TLS_CERT_PATH" ] || [ -e "$TLS_KEY_PATH" ]; then
     fail "Both TLS_CERT_PATH and TLS_KEY_PATH must exist."
 else
@@ -102,6 +127,13 @@ else
         *[!0-9.]*) subject_alt_name="DNS:$TLS_HOST" ;;
         *) subject_alt_name="IP:$TLS_HOST" ;;
     esac
+
+    if [ "$LAN_REDIRECT_ENABLED" = "true" ]; then
+        case "$LAN_REDIRECT_HOST" in
+            *[!0-9.]*) subject_alt_name="$subject_alt_name, DNS:$LAN_REDIRECT_HOST" ;;
+            *) subject_alt_name="$subject_alt_name, IP:$LAN_REDIRECT_HOST" ;;
+        esac
+    fi
 
     umask 077
     openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 365 \
